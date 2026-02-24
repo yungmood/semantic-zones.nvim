@@ -233,8 +233,9 @@ function M.setup(opts)
         group = group,
         buffer = buf,
         callback = function(req_ev)
-          local data = (req_ev.data ~= nil and req_ev.data ~= "") and req_ev.data
-            or vim.v.termrequest
+        local data = type(req_ev.data) == "table" and req_ev.data.sequence
+          or (req_ev.data ~= nil and req_ev.data ~= "" and req_ev.data)
+          or vim.v.termrequest
           local zone_type = parse_osc133(data)
           if zone_type then record_zone(buf, zone_type) end
         end,
