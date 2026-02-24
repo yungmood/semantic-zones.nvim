@@ -1,11 +1,11 @@
 # semantic-zones.nvim
 
-Tracks [OSC 133](https://gitlab.freedesktop.org/Per_Bothner/specifications/blob/master/proposals/semantic-prompts.md) semantic-prompt zones in Neovim terminal buffers and exposes them as text objects and navigable regions.
+Tracks [OSC 133](https://gitlab.freedesktop.org/Per_Bothner/specifications/blob/master/proposals/semantic-prompts.md) semantic-prompt zones in Neovim terminal buffers and exposes them as navigable cells and text objects.
 
 ## Requirements
 
 - Neovim ≥ 0.10
-- Shell with OSC 133 support (zsh, bash, fish — see shell snippets below — or WezTerm/Kitty built-in integration)
+- A shell with OSC 133 support (see [Shell integration](#shell-integration) below, or use WezTerm/Kitty built-in integration)
 
 ## Installation
 
@@ -19,21 +19,23 @@ vim.pack.add("yungmood/semantic-zones.nvim")
 { "yungmood/semantic-zones.nvim", config = true }
 ```
 
-Then call `require("semantic-zones").setup()` unless using `config = true`.
+Call `require("semantic-zones").setup()` unless your plugin manager does it for you (e.g. `config = true`).
 
-## Keymaps (terminal buffers only)
+## Usage
 
-| Key   | Action                          |
-|-------|---------------------------------|
-| `]c`  | Next cell                       |
-| `[c`  | Previous cell                   |
-| `;`   | Repeat last jump                |
-| `,`   | Repeat last jump (reverse)      |
-| `vic` | Select input (text object)      |
-| `voc` | Select output (text object)     |
-| `vac` | Select entire cell (text object)|
+All keymaps are local to terminal buffers.
 
-Text objects `ic`, `oc`, `ac` work with any operator: `y`, `d`, `c`, `v`, etc.
+| Key   | Action                     |
+|-------|----------------------------|
+| `]c`  | Next cell                  |
+| `[c`  | Previous cell              |
+| `;`   | Repeat last jump           |
+| `,`   | Repeat last jump (reverse) |
+| `ic`  | Text object: input zone    |
+| `oc`  | Text object: output zone   |
+| `ac`  | Text object: entire cell   |
+
+Text objects work with any operator — `yic`, `dic`, `vac`, etc.
 
 ## Configuration
 
@@ -48,51 +50,37 @@ require("semantic-zones").setup({
 })
 ```
 
-Set any key to `""` or `false` to disable it.
+Set any value to `false` to disable that mapping.
 
-## Integration with editable-term.nvim
+## Shell integration
 
-[editable-term.nvim](https://github.com/xb-bx/editable-term.nvim) provides insert-mode editing of the terminal prompt; semantic-zones.nvim provides text objects and navigation for command output. Load both independently — they do not conflict:
+```bash
+_semantic_precmd()  { printf '\e]133;D\e\\\e]133;A\e\\'; }
+_semantic_prompt()  { printf '\e]133;B\e\\'; }
+_semantic_preexec() { printf '\e]133;C\e\\'; }
+```
 
-```lua
-{ "xb-bx/editable-term.nvim",      config = true },
-{ "yungmood/semantic-zones.nvim",   config = true },
+### zsh 
+```zsh
+add-zsh-hook precmd  _semantic_precmd
+add-zsh-hook precmd  _semantic_prompt
+add-zsh-hook preexec _semantic_preexec
+```
+
+### bash
+```bash
+PROMPT_COMMAND="${PROMPT_COMMAND:+$PROMPT_COMMAND;}_semantic_precmd;_semantic_prompt"
+trap '_semantic_preexec' DEBUG
 ```
 
 ## API
 
 ```lua
 local sz = require("semantic-zones")
-sz.cells(buf)  -- returns { {a, b?, c?, d?} ... }
-sz.clear(buf)  -- clears recorded zones
+
+sz.cells(buf)  -- SemanticCell[] — all cells in buf (defaults to current buffer)
+sz.clear(buf)  -- clear all recorded zones for buf
 ```
 
-## Shell integration
+A `SemanticCell` is `{ a, b?, c?, d? }` where each field is a `SemanticZone` with `.row`, `.col`, `.type`, and `.id`.
 
-### zsh
-```zsh
-precmd()  { print -Pn '\e]133;D\a\e]133;A\a' }
-preexec() { print -Pn '\e]133;C\a' }
-PS1='%n@%m:%~%# $(print -Pn "\e]133;B\a")'
-```
-
-### bash
-```bash
-PROMPT_COMMAND='printf "\e]133;D\a\e]133;A\a"'
-PS1='\u@\h:\w\$ $(printf "\e]133;B\a")'
-trap 'printf "\e]133;C\a"' DEBUG
-```
-
-### fish
-```fish
-function __semantic_precmd --on-event fish_prompt
-    printf '\e]133;D\a\e]133;A\a'
-end
-function __semantic_preexec --on-event fish_preexec
-    printf '\e]133;C\a'
-end
-```
-
-## License
-
-MIT
